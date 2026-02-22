@@ -1,37 +1,63 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Ravensleigh | Comms</title>
+    <meta charset="UTF-8">
+    <title>Ravensleigh | Communications</title>
     <style>
-        body { background: #050505; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; }
-        #chat-box { flex-grow: 1; border: 1px solid #00f2ff; margin: 20px; padding: 15px; overflow-y: auto; background: rgba(0,242,255,0.02); }
-        .message { margin-bottom: 12px; border-bottom: 1px solid #111; padding-bottom: 5px; position: relative; }
-        .role-tag { font-size: 0.7em; color: #aaa; text-transform: uppercase; margin-right: 5px; border: 1px solid #444; padding: 2px 4px; }
+        body { background: #050505; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        nav { padding: 15px; border-bottom: 1px solid #00f2ff; text-align: center; background: #000; }
+        nav a { color: #00f2ff; text-decoration: none; margin: 0 15px; font-weight: bold; font-size: 0.9em; }
+        
+        #chat-container { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; max-width: 1000px; margin: auto; width: 100%; box-sizing: border-box; }
+        
+        /* Pinned Section */
+        #pinned-area { border-left: 3px solid yellow; background: rgba(255, 255, 0, 0.05); margin-bottom: 10px; max-height: 150px; overflow-y: auto; display: none; }
+        .pin-tag { color: yellow; font-size: 0.7em; font-weight: bold; margin-right: 10px; }
+
+        #chat-box { flex-grow: 1; border: 1px solid #00f2ff; background: rgba(0, 242, 255, 0.02); overflow-y: auto; padding: 15px; margin-bottom: 15px; }
+        
+        .message { margin-bottom: 12px; border-bottom: 1px solid #111; padding-bottom: 8px; position: relative; cursor: default; }
+        .commander-msg { border-left: 2px solid #00f2ff; padding-left: 10px; }
+        .role-tag { font-size: 0.7em; color: #aaa; text-transform: uppercase; margin-right: 8px; border: 1px solid #444; padding: 1px 4px; }
         .user-name { font-weight: bold; color: #fff; }
-        .del-btn { background: none; border: 1px solid red; color: red; font-size: 0.6em; cursor: pointer; float: right; padding: 2px 5px; }
-        .input-area { padding: 20px; display: flex; gap: 10px; }
-        input { background: #111; border: 1px solid #00f2ff; color: #00f2ff; padding: 10px; flex-grow: 1; }
-        button#send { background: #00f2ff; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+        
+        .input-area { display: flex; gap: 10px; padding-bottom: 5px; }
+        input { background: #111; border: 1px solid #00f2ff; color: #00f2ff; padding: 12px; flex-grow: 1; outline: none; }
+        button#send { background: #00f2ff; color: #000; border: none; padding: 0 25px; cursor: pointer; font-weight: bold; }
+        
+        .admin-tools { display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-top: 5px; }
+        .wipe-btn { color: #ff0000; cursor: pointer; text-decoration: underline; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; }
     </style>
 </head>
 <body>
+
     <nav>
-        <a href="/" style="color:#00f2ff; text-decoration:none; margin: 0 15px;">HOME</a>
-        <a href="/documents/" style="color:#00f2ff; text-decoration:none; margin: 0 15px;">ARCHIVES</a>
+        <a href="/">BASE</a>
+        <a href="/documents/">ARCHIVES</a>
+        <a href="/communications/">COMMS</a>
     </nav>
 
-    <div id="chat-box">Establishing connection...</div>
+    <div id="chat-container">
+        <h2 style="text-align: center; letter-spacing: 3px; margin: 10px 0;">SUB-SPACE TRANSMISSIONS</h2>
+        
+        <div id="pinned-area"></div>
+        <div id="chat-box">Connecting to core...</div>
+        
+        <div class="input-area">
+            <input type="text" id="msg-input" placeholder="Transmit signal..." autocomplete="off">
+            <button id="send">SEND</button>
+        </div>
 
-    <div class="input-area">
-        <input type="text" id="msg" placeholder="Enter signal...">
-        <button id="send">SEND</button>
+        <div class="admin-tools" id="admin-extras">
+            <span>COMMANDER LOGGED IN: SHIFT+CLICK MESSAGE TO MANAGE</span>
+            <button class="wipe-btn" id="wipe-btn" style="display:none;" onclick="wipeAllMessages()">[DANGER: WIPE ALL CHAT HISTORY]</button>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, getDoc, deleteDoc, updateDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAnwjt-RorMnufPR9He4-6alU7G_ox04lU",
@@ -46,59 +72,104 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let myData = { name: "Unknown", role: "Visitor", permLevel: 1 };
+        let myProfile = null;
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) { window.location.href = "/login/"; }
             else {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (snap.exists() && snap.data().approved) {
-                    myData = snap.data();
-                    startChat();
+                    myProfile = snap.data();
+                    if (myProfile.permLevel < 2) {
+                        alert("COMMUNICATIONS UNAVAILABLE: Minimum Clearance 2 Required.");
+                        window.location.href = "/";
+                    } else {
+                        if(myProfile.permLevel === 5) document.getElementById('wipe-btn').style.display = "block";
+                        startChat();
+                    }
                 } else { window.location.href = "/login/"; }
             }
         });
 
         async function sendSignal() {
-            const text = document.getElementById('msg').value;
-            if (text.trim() === "") return;
-            await addDoc(collection(db, "messages"), {
-                text: text,
-                name: myData.name,
-                role: myData.role,
-                time: serverTimestamp()
-            });
-            document.getElementById('msg').value = "";
-        }
-
-        function startChat() {
-            const q = query(collection(db, "messages"), orderBy("time", "asc"));
-            onSnapshot(q, (snap) => {
-                const box = document.getElementById('chat-box');
-                box.innerHTML = "";
-                snap.forEach((d) => {
-                    const m = d.data();
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = "message";
-                    
-                    // Add delete button ONLY if I am Level 2
-                    let delHtml = (myData.permLevel >= 2) ? `<button class="del-btn" onclick="erase('${d.id}')">ERASE</button>` : "";
-                    
-                    msgDiv.innerHTML = `${delHtml}<span class="role-tag">${m.role}</span><span class="user-name">${m.name}</span>: ${m.text}`;
-                    box.appendChild(msgDiv);
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            if (text !== "" && myProfile) {
+                await addDoc(collection(db, "messages"), {
+                    text: text,
+                    name: myProfile.name,
+                    role: myProfile.role,
+                    timestamp: serverTimestamp(),
+                    pinned: false
                 });
-                box.scrollTop = box.scrollHeight;
-            });
+                input.value = "";
+            }
         }
 
-        window.erase = async (id) => {
-            if (confirm("Permanently erase this signal from the archives?")) {
-                await deleteDoc(doc(db, "messages", id));
+        // --- COMMANDER TOOLS ---
+        window.handleMsgClick = async (id, isPinned, event) => {
+            if (!event.shiftKey || myProfile.permLevel < 4) return;
+
+            const action = prompt("COMMANDER OVERRIDE:\nType 'ERASE' to delete\nType 'PIN' to toggle pin status\nType 'CANCEL' to exit").toUpperCase();
+
+            if (action === 'ERASE') {
+                if(confirm("Confirm deletion?")) await deleteDoc(doc(db, "messages", id));
+            } else if (action === 'PIN') {
+                if(myProfile.permLevel < 5) { alert("Requires Level 5"); return; }
+                await updateDoc(doc(db, "messages", id), { pinned: !isPinned });
             }
         };
 
+        window.wipeAllMessages = async () => {
+            if (confirm("FINAL WARNING: This will permanently delete every message in the archives. Proceed?")) {
+                const q = query(collection(db, "messages"));
+                const snap = await getDocs(q);
+                const batch = writeBatch(db);
+                snap.forEach((d) => batch.delete(d.ref));
+                await batch.commit();
+                alert("Archives Purged.");
+            }
+        };
+
+        function startChat() {
+            const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
+            onSnapshot(q, (snapshot) => {
+                const chatBox = document.getElementById('chat-box');
+                const pinArea = document.getElementById('pinned-area');
+                chatBox.innerHTML = "";
+                pinArea.innerHTML = "";
+                let hasPins = false;
+                
+                snapshot.forEach((msgDoc) => {
+                    const m = msgDoc.data();
+                    const id = msgDoc.id;
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = `message ${m.role.includes('Commander') ? 'commander-msg' : ''}`;
+                    msgDiv.setAttribute('onclick', `handleMsgClick('${id}', ${m.pinned}, event)`);
+                    
+                    const content = `<span class="role-tag">${m.role}</span><span class="user-name">${m.name}</span>: ${m.text}`;
+                    
+                    if (m.pinned) {
+                        hasPins = true;
+                        const pinDiv = document.createElement('div');
+                        pinDiv.className = "message";
+                        pinDiv.style.padding = "5px 10px";
+                        pinDiv.innerHTML = `<span class="pin-tag">[PRIORITY]</span>${content}`;
+                        pinDiv.setAttribute('onclick', `handleMsgClick('${id}', true, event)`);
+                        pinArea.appendChild(pinDiv);
+                    } else {
+                        msgDiv.innerHTML = content;
+                        chatBox.appendChild(msgDiv);
+                    }
+                });
+
+                pinArea.style.display = hasPins ? "block" : "none";
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
+        }
+
         document.getElementById('send').onclick = sendSignal;
-        document.getElementById('msg').addEventListener("keypress", (e) => { if (e.key === "Enter") sendSignal(); });
+        document.getElementById('msg-input').onkeypress = (e) => { if (e.key === 'Enter') sendSignal(); };
     </script>
 </body>
 </html>
