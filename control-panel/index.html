@@ -2,46 +2,71 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Ravensleigh | Control Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ravensleigh | Central Control</title>
     <style>
         body { background: #050505; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; }
-        nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; }
-        a { color: #00f2ff; text-decoration: none; margin: 0 15px; }
+        nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; background: #000; }
+        nav a { color: #00f2ff; text-decoration: none; margin: 0 15px; font-weight: bold; }
         
-        .admin-container { padding: 40px; max-width: 1000px; margin: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: rgba(0, 242, 255, 0.02); }
-        th, td { border: 1px solid #222; padding: 12px; text-align: left; }
-        th { background: #111; color: #fff; }
+        .admin-container { padding: 40px; max-width: 1100px; margin: auto; }
+        h1 { letter-spacing: 5px; text-shadow: 0 0 10px #00f2ff; }
         
-        .btn { padding: 5px 10px; cursor: pointer; border: none; font-weight: bold; font-family: 'Courier New'; }
-        .approve-btn { background: #00ff00; color: #000; }
-        .level-btn { background: #00f2ff; color: #000; margin-right: 5px; }
-        .delete-btn { background: #ff3333; color: #fff; }
-        
-        .status-tag { font-size: 0.8em; padding: 2px 5px; border-radius: 3px; }
-        .pending { background: #555; color: #fff; }
+        table { width: 100%; border-collapse: collapse; margin-top: 30px; background: rgba(0, 242, 255, 0.02); }
+        th { background: #111; color: #fff; padding: 15px; text-align: left; border-bottom: 2px solid #00f2ff; }
+        td { padding: 15px; border-bottom: 1px solid #222; }
+
+        input, select { 
+            background: #111; 
+            border: 1px solid #333; 
+            color: #00f2ff; 
+            padding: 8px; 
+            font-family: 'Courier New';
+            outline: none;
+        }
+        input:focus { border-color: #00f2ff; }
+
+        .btn { 
+            padding: 8px 15px; 
+            cursor: pointer; 
+            border: none; 
+            font-weight: bold; 
+            font-family: 'Courier New'; 
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            width: 100%;
+        }
+        .save-btn { background: #00f2ff; color: #000; }
+        .approve-btn { background: #555; color: #fff; }
+        .approve-btn.active { background: #008800; color: #fff; }
+        .delete-btn { background: #660000; color: #fff; border: 1px solid #ff0000; }
+        .delete-btn:hover { background: #ff0000; }
+
+        .status-badge { font-size: 10px; padding: 2px 6px; display: inline-block; margin-top: 5px; }
         .verified { background: #00f2ff; color: #000; }
+        .pending { background: #ffaa00; color: #000; }
     </style>
 </head>
 <body>
 
     <nav>
-        <a href="/">HOME</a>
+        <a href="/">BASE</a>
         <a href="/communications/">COMMS</a>
+        <a href="/documents/">ARCHIVES</a>
         <a href="/control-panel/">CONTROL PANEL</a>
     </nav>
 
     <div class="admin-container">
-        <h1>ADMIRAL CONTROL INTERFACE</h1>
-        <p>Manage sector lifeforms and clearance levels.</p>
+        <h1>ADMIRAL CONTROL PANEL</h1>
+        <p>SECURE INTERFACE: Managing Sector Personnel</p>
         
-        <table id="user-table">
+        <table>
             <thead>
                 <tr>
-                    <th>Designation</th>
-                    <th>Role</th>
-                    <th>Clearance</th>
-                    <th>Actions</th>
+                    <th>Identity (Name/Email)</th>
+                    <th>Designation (Role)</th>
+                    <th>Clearance Level</th>
+                    <th>Command Actions</th>
                 </tr>
             </thead>
             <tbody id="user-list">
@@ -67,7 +92,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // SECURITY: Ensure only Level 2 can see this
+        // --- ACCESS SECURITY ---
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "/login/";
@@ -76,12 +101,13 @@
                 if (snap.exists() && snap.data().permLevel >= 2) {
                     loadUsers();
                 } else {
-                    alert("Unauthorized Access Attempt Detected.");
+                    alert("SECURITY BREACH: Insufficient Clearance.");
                     window.location.href = "/";
                 }
             }
         });
 
+        // --- RENDER TABLE ---
         function loadUsers() {
             onSnapshot(collection(db, "users"), (snapshot) => {
                 const list = document.getElementById('user-list');
@@ -94,21 +120,28 @@
 
                     row.innerHTML = `
                         <td>
-                            <strong>${u.name}</strong><br>
-                            <span style="font-size:0.7em; color:#666;">${u.email}</span>
+                            <input type="text" id="name-${id}" value="${u.name || ''}" placeholder="Identity Name"><br>
+                            <span style="font-size:0.7em; color:#555;">UID: ${id}</span>
                         </td>
-                        <td>${u.role}</td>
                         <td>
-                            <span class="status-tag ${u.approved ? 'Low clearance' : 'pending'}">
-                                Lvl ${u.permLevel} - ${u.approved ? 'Highest Clearance' : 'Pending'}
+                            <input type="text" id="role-${id}" value="${u.role || ''}" placeholder="Assigned Role">
+                        </td>
+                        <td>
+                            <select id="perm-${id}">
+                                <option value="1" ${u.permLevel == 1 ? 'selected' : ''}>Low Clearance (Lvl 1)</option>
+                                <option value="2" ${u.permLevel == 2 ? 'selected' : ''}>Highest Clearance (Lvl 2)</option>
+                            </select>
+                            <br>
+                            <span class="status-badge ${u.approved ? 'verified' : 'pending'}">
+                                ${u.approved ? 'VERIFIED' : 'PENDING APPROVAL'}
                             </span>
                         </td>
-                        <td>
-                            <button class="btn approve-btn" onclick="toggleApprove('${id}', ${u.approved})">
+                        <td style="width: 150px;">
+                            <button class="btn save-btn" onclick="saveData('${id}')">Save Changes</button>
+                            <button class="btn approve-btn ${u.approved ? 'active' : ''}" onclick="toggleStatus('${id}', ${u.approved})">
                                 ${u.approved ? 'Revoke' : 'Approve'}
                             </button>
-                            <button class="btn level-btn" onclick="changeLevel('${id}', ${u.permLevel})">Set Access Level</button>
-                            <button class="btn delete-btn" onclick="removeUser('${id}')">Terminate</button>
+                            <button class="btn delete-btn" onclick="terminateAccount('${id}')">Terminate</button>
                         </td>
                     `;
                     list.appendChild(row);
@@ -116,21 +149,30 @@
             });
         }
 
-        // --- ADMIN ACTIONS ---
+        // --- GLOBAL ACTIONS ---
+        window.saveData = async (id) => {
+            const newName = document.getElementById(`name-${id}`).value;
+            const newRole = document.getElementById(`role-${id}`).value;
+            const newPerm = document.getElementById(`perm-${id}`).value;
 
-        window.toggleApprove = async (id, currentStatus) => {
-            await updateDoc(doc(db, "users", id), { approved: !currentStatus });
-        };
-
-        window.changeLevel = async (id, currentLevel) => {
-            const newLevel = prompt("Enter Permission Level (1 or 2):", currentLevel);
-            if (newLevel) {
-                await updateDoc(doc(db, "users", id), { permLevel: parseInt(newLevel) });
+            try {
+                await updateDoc(doc(db, "users", id), {
+                    name: newName,
+                    role: newRole,
+                    permLevel: parseInt(newPerm)
+                });
+                alert("Records Updated.");
+            } catch (e) {
+                alert("Update Failed: " + e.message);
             }
         };
 
-        window.removeUser = async (id) => {
-            if (confirm("Permanently terminate this lifeform from the database?")) {
+        window.toggleStatus = async (id, status) => {
+            await updateDoc(doc(db, "users", id), { approved: !status });
+        };
+
+        window.terminateAccount = async (id) => {
+            if (confirm("WARNING: Permanent deletion of lifeform record. Proceed?")) {
                 await deleteDoc(doc(db, "users", id));
             }
         };
