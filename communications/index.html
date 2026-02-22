@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ravensleigh | Communications</title>
+    <style>
+        body { background: #050505; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; background: #000; }
+        a { color: #00f2ff; text-decoration: none; margin: 0 15px; padding: 5px 10px; border: 1px solid transparent; }
+        a:hover { border: 1px solid #00f2ff; }
+        
+        #chat-container { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; max-width: 900px; margin: auto; width: 100%; }
+        #chat-box { flex-grow: 1; border: 1px solid #00f2ff; background: rgba(0, 242, 255, 0.02); overflow-y: auto; padding: 15px; margin-bottom: 15px; }
+        
+        .message { margin-bottom: 10px; line-height: 1.4; border-bottom: 1px solid #111; padding-bottom: 5px; }
+        .user-tag { color: #fff; font-weight: bold; margin-right: 8px; }
+        
+        .input-area { display: flex; gap: 10px; }
+        input { background: #111; border: 1px solid #00f2ff; color: #00f2ff; padding: 12px; flex-grow: 1; outline: none; }
+        button { background: #00f2ff; color: #000; border: none; padding: 10px 25px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #fff; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="/">HOME</a>
+        <a href="/documents/">ARCHIVES</a>
+        <a href="/communications/">COMMS</a>
+    </nav>
+
+    <div id="chat-container">
+        <h2 style="text-align: center; letter-spacing: 3px;">SUB-SPACE TRANSMISSIONS</h2>
+        <div id="chat-box">Loading encrypted signals...</div>
+        
+        <div class="input-area">
+            <input type="text" id="msg-input" placeholder="Enter transmission..." autocomplete="off">
+            <button id="send-btn">SEND</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnwjt-RorMnufPR9He4-6alU7G_ox04lU",
+            authDomain: "ravensleigh-website.firebaseapp.com",
+            projectId: "ravensleigh-website",
+            storageBucket: "ravensleigh-website.firebasestorage.app",
+            messagingSenderId: "892085441390",
+            appId: "1:892085441390:web:619f81061a22cca61ca77f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // 1. SECURITY CHECK: Ensure user is logged in AND approved
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "/login/";
+            } else {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (!userDoc.exists() || !userDoc.data().approved) {
+                    window.location.href = "/login/";
+                } else {
+                    startChat(); // Only start if cleared
+                }
+            }
+        });
+
+        // 2. SEND MESSAGE FUNCTION
+        async function sendMessage() {
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            
+            if (text !== "" && auth.currentUser) {
+                try {
+                    await addDoc(collection(db, "messages"), {
+                        text: text,
+                        sender: auth.currentUser.email.split('@')[0], // Uses name before the @
+                        timestamp: serverTimestamp()
+                    });
+                    input.value = "";
+                } catch (e) {
+                    console.error("Transmission failed: ", e);
+                }
+            }
+        }
+
+        // 3. LISTEN FOR MESSAGES (Real-time)
+        function startChat() {
+            const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
+            
+            onSnapshot(q, (snapshot) => {
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML = ""; // Clear for refresh
+                
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = "message";
+                    msgDiv.innerHTML = `<span class="user-tag">[${data.sender || 'Unknown'}]</span> ${data.text}`;
+                    chatBox.appendChild(msgDiv);
+                });
+                
+                // Auto-scroll to bottom
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
+        }
+
+        // Event Listeners
+        document.getElementById('send-btn').onclick = sendMessage;
+        document.getElementById('msg-input').onkeypress = (e) => {
+            if (e.key === 'Enter') sendMessage();
+        };
+    </script>
+</body>
+</html>
