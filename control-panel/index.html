@@ -99,15 +99,15 @@
                         </td>
                         <td>${u.role}</td>
                         <td>
-                            <span class="status-tag ${u.approved ? 'verified' : 'pending'}">
-                                Lvl ${u.permLevel} - ${u.approved ? 'Verified' : 'Pending'}
+                            <span class="status-tag ${u.approved ? 'Highest Clearance' : 'pending'}">
+                                Lvl ${u.permLevel} - ${u.approved ? 'Highest Clearance' : 'Pending'}
                             </span>
                         </td>
                         <td>
                             <button class="btn approve-btn" onclick="toggleApprove('${id}', ${u.approved})">
                                 ${u.approved ? 'Revoke' : 'Approve'}
                             </button>
-                            <button class="btn level-btn" onclick="changeLevel('${id}', ${u.permLevel})">Set Lvl</button>
+                            <button class="btn level-btn" onclick="changeLevel('${id}', ${u.permLevel})">Set Access Level</button>
                             <button class="btn delete-btn" onclick="removeUser('${id}')">Terminate</button>
                         </td>
                     `;
