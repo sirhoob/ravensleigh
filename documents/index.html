@@ -10,17 +10,29 @@
         .doc-card { border: 1px solid #222; padding: 25px; margin-bottom: 20px; background: rgba(0, 242, 255, 0.02); }
         
         #editor-zone { display: none; background: #111; border: 2px solid #00f2ff; padding: 20px; margin-bottom: 30px; }
-        .toolbar { margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .toolbar { margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
         
-        /* Reactive Button Styling */
         .tool-btn { 
             background: #000; color: #00f2ff; border: 2px solid #00f2ff; 
-            cursor: pointer; padding: 5px 12px; font-family: inherit; font-weight: bold;
+            cursor: pointer; padding: 5px 12px; font-family: 'Courier New', monospace; font-weight: bold;
             transition: all 0.2s;
         }
-        .tool-btn.active { border-color: #ff0000; color: #ff0000; box-shadow: 0 0 5px #ff0000; }
+        .tool-btn.active { border-color: #ff0000 !important; color: #ff0000 !important; box-shadow: 0 0 5px #ff0000; }
         
-        #edit-area { background: #fff; color: #000; min-height: 300px; padding: 15px; outline: none; margin-bottom: 15px; border: 2px solid #333; }
+        /* Specific Color Buttons */
+        .btn-blue { color: #00aaff; border-color: #00aaff; }
+        .btn-green { color: #00ff00; border-color: #00ff00; }
+        .btn-black { color: #fff; background: #000; border-color: #444; } /* White text on black background */
+        .btn-reset { color: #ffaa00; border-color: #ffaa00; }
+
+        #edit-area { 
+            background: #fff; color: #000; min-height: 300px; padding: 15px; 
+            outline: none; margin-bottom: 15px; border: 2px solid #333;
+            font-family: 'Courier New', monospace; 
+        }
+        /* Reset helper to ensure monospace is forced back */
+        #edit-area * { font-family: inherit; }
+
         .save-btn { background: #00f2ff; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; margin-left: auto; }
     </style>
 </head>
@@ -37,14 +49,16 @@
                 <button class="tool-btn" data-cmd="bold">B</button>
                 <button class="tool-btn" data-cmd="italic">I</button>
                 <button class="tool-btn" data-cmd="underline">U</button>
-                <button class="tool-btn" data-cmd="formatBlock" data-val="h1">H1</button>
-                <button class="tool-btn" data-cmd="formatBlock" data-val="h2">H2</button>
+                <button class="tool-btn" data-cmd="h1">H1</button>
+                <button class="tool-btn" data-cmd="h2">H2</button>
                 
-                <span style="border-left: 1px solid #333; margin: 0 5px;"></span>
+                <span style="border-left: 1px solid #333; height: 20px; margin: 0 5px;"></span>
                 
-                <button class="tool-btn" onclick="exec('foreColor', '#0000ff')" style="color:blue; border-color:blue;">BLUE</button>
-                <button class="tool-btn" onclick="exec('foreColor', '#008000')" style="color:green; border-color:green;">GREEN</button>
-                <button class="tool-btn" onclick="exec('foreColor', '#000000')" style="color:black; border-color:black;">BLACK</button>
+                <button class="tool-btn btn-blue" onclick="exec('foreColor', '#0000ff')">BLUE</button>
+                <button class="tool-btn btn-green" onclick="exec('foreColor', '#008000')">GREEN</button>
+                <button class="tool-btn btn-black" onclick="exec('foreColor', '#000000')">BLACK</button>
+                
+                <button class="tool-btn btn-reset" onclick="resetFormatting()">RESET FONT</button>
                 
                 <button id="save-btn" class="save-btn">UPLOAD TO CORE</button>
             </div>
@@ -65,6 +79,7 @@
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
+        // CONFIG (Ensure this matches your Firebase Project)
         const firebaseConfig = {
             apiKey: "AIzaSyAnwjt-RorMnufPR9He4-6alU7G_ox04lU",
             authDomain: "ravensleigh-website.firebaseapp.com",
@@ -89,16 +104,43 @@
             loadDocs();
         });
 
-        // Reactive Toolbar Logic
+        // Smart Toggling for H1 and H2
+        window.exec = (cmd, val = null) => {
+            if (cmd === 'h1' || cmd === 'h2') {
+                const currentTag = document.queryCommandValue('formatBlock');
+                if (currentTag === cmd) {
+                    document.execCommand('formatBlock', false, 'p'); // Disable and turn back to paragraph
+                } else {
+                    document.execCommand('formatBlock', false, cmd);
+                }
+            } else {
+                document.execCommand(cmd, false, val);
+            }
+            checkState();
+        };
+
+        // Reset All Formatting and Font
+        window.resetFormatting = () => {
+            if(confirm("This will strip all styling (colors, sizes) and reset the font. Proceed?")) {
+                document.execCommand('removeFormat', false, null);
+                // Forced font-family reset for pasted content
+                const editor = document.getElementById('edit-area');
+                editor.focus();
+                document.execCommand('selectAll', false, null);
+                document.execCommand('fontName', false, 'Courier New');
+                window.getSelection().removeAllRanges();
+                checkState();
+            }
+        };
+
         window.checkState = () => {
             const btns = document.querySelectorAll('.tool-btn[data-cmd]');
             btns.forEach(btn => {
                 const cmd = btn.getAttribute('data-cmd');
-                const val = btn.getAttribute('data-val');
                 let isActive = false;
                 
-                if (val) {
-                    isActive = document.queryCommandValue(cmd).includes(val);
+                if (cmd === 'h1' || cmd === 'h2') {
+                    isActive = document.queryCommandValue('formatBlock') === cmd;
                 } else {
                     isActive = document.queryCommandState(cmd);
                 }
@@ -106,14 +148,9 @@
             });
         };
 
-        window.exec = (cmd, val = null) => {
-            document.execCommand(cmd, false, val);
-            checkState();
-        };
-
         document.querySelectorAll('.tool-btn[data-cmd]').forEach(btn => {
             btn.addEventListener('click', () => {
-                exec(btn.getAttribute('data-cmd'), btn.getAttribute('data-val'));
+                exec(btn.getAttribute('data-cmd'));
             });
         });
 
@@ -146,7 +183,8 @@
         };
 
         document.getElementById('new-doc-btn').onclick = () => { 
-            editingId = null; document.getElementById('edit-area').innerHTML = ""; 
+            editingId = null; 
+            document.getElementById('edit-area').innerHTML = ""; 
             document.getElementById('editor-zone').style.display = "block"; 
         };
 
@@ -163,4 +201,3 @@
     </script>
 </body>
 </html>
-
