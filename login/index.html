@@ -1,28 +1,82 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Ravensleigh | Verification</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ravensleigh | Identity Verification</title>
     <style>
-        body { background: #000; color: #00f2ff; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .box { border: 2px solid #00f2ff; padding: 40px; text-align: center; box-shadow: 0 0 15px #00f2ff; }
-        input { background: #111; border: 1px solid #00f2ff; color: #00f2ff; padding: 10px; margin: 10px; display: block; width: 200px; }
-        button { background: #00f2ff; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+        body { 
+            background: #000; 
+            color: #00f2ff; 
+            font-family: 'Courier New', monospace; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .terminal-box { 
+            border: 2px solid #00f2ff; 
+            padding: 40px; 
+            text-align: center; 
+            background: rgba(0, 242, 255, 0.05);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+            width: 320px;
+        }
+        h2 { letter-spacing: 4px; margin-bottom: 30px; }
+        input { 
+            background: #111; 
+            border: 1px solid #00f2ff; 
+            color: #00f2ff; 
+            padding: 12px; 
+            margin: 10px 0; 
+            width: 100%; 
+            box-sizing: border-box;
+            outline: none;
+        }
+        .btn-group { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        button { 
+            background: #00f2ff; 
+            color: #000; 
+            border: none; 
+            padding: 12px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            text-transform: uppercase;
+        }
+        button:hover { background: #fff; }
+        #req-btn { background: none; color: #00f2ff; border: 1px solid #00f2ff; }
+        #status-msg { font-size: 12px; margin-top: 20px; min-height: 1.2em; }
+        .forgot-link { 
+            font-size: 10px; 
+            text-decoration: underline; 
+            cursor: pointer; 
+            margin-top: 15px; 
+            display: inline-block;
+            color: #666;
+        }
     </style>
 </head>
 <body>
-    <div class="box">
+
+    <div class="terminal-box">
         <h2>IDENTITY SCAN</h2>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="password" placeholder="Key">
-        <button id="login">LOGIN</button>
-        <button id="req" style="background:none; color:#00f2ff; border:1px solid #00f2ff; margin-left:10px;">REQUEST ACCESS</button>
-        <p id="msg"></p>
+        <input type="email" id="email" placeholder="Orbital Email">
+        <input type="password" id="password" placeholder="Access Key">
+        
+        <div class="btn-group">
+            <button id="login-btn">LOGIN</button>
+            <button id="req-btn">REQUEST ENTRY</button>
+        </div>
+
+        <p id="status-msg"></p>
+        <span class="forgot-link" id="forgot-btn">FORGOT ACCESS KEY?</span>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAnwjt-RorMnufPR9He4-6alU7G_ox04lU",
@@ -37,19 +91,78 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        document.getElementById('login').onclick = async () => {
+        const status = document.getElementById('status-msg');
+
+        // LOGIN LOGIC
+        document.getElementById('login-btn').onclick = async () => {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+            
             try {
-                await signInWithEmailAndPassword(auth, email.value, password.value);
-                window.location.href = "/";
-            } catch(e) { alert("Access Denied."); }
+                const cred = await signInWithEmailAndPassword(auth, e, p);
+                const userDoc = await getDoc(doc(db, "users", cred.user.uid));
+                
+                if (userDoc.exists() && userDoc.data().approved === true) {
+                    window.location.href = "/"; 
+                } else {
+                    status.style.color = "yellow";
+                    status.innerText = "ACCESS DENIED: Clearance Pending.";
+                    await signOut(auth);
+                }
+            } catch (err) {
+                status.style.color = "red";
+                status.innerText = "ERROR: Identity not found.";
+            }
         };
 
-        document.getElementById('req').onclick = async () => {
+        // SIGN UP WITH AUTO-NAMING
+        document.getElementById('req-btn').onclick = async () => {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+
+            if (!e || !p) {
+                status.innerText = "Provide credentials for scan.";
+                return;
+            }
+
             try {
-                const res = await createUserWithEmailAndPassword(auth, email.value, password.value);
-                await setDoc(doc(db, "users", res.user.uid), { email: email.value, approved: false });
-                document.getElementById('msg').innerText = "Request Sent. Wait for Admiral.";
-            } catch(e) { alert(e.message); }
+                const res = await createUserWithEmailAndPassword(auth, e, p);
+                
+                // Generate a random ID (e.g., Alien#7482)
+                const randomNum = Math.floor(Math.random() * 1000000) + 1;
+                const alienName = `Alien#${randomNum}`;
+
+                await setDoc(doc(db, "users", res.user.uid), {
+                    email: e,
+                    name: alienName,              // Automated random name
+                    role: "Unverified Lifeform",  // Default role
+                    permLevel: 1,                 // Default permissions
+                    approved: false               // Manual approval required
+                });
+
+                status.style.color = "#00ff00";
+                status.innerText = "Signal transmitted. Awaiting Admiral's signal.";
+                
+                setTimeout(() => { signOut(auth); }, 3000);
+            } catch (err) {
+                status.style.color = "red";
+                status.innerText = "FAIL: " + err.message;
+            }
+        };
+
+        // PASSWORD RESET
+        document.getElementById('forgot-btn').onclick = async () => {
+            const e = document.getElementById('email').value;
+            if (!e) {
+                alert("Enter email first.");
+                return;
+            }
+            try {
+                await sendPasswordResetEmail(auth, e);
+                alert("Reset link sent to " + e);
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
         };
     </script>
 </body>
