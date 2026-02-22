@@ -1,25 +1,30 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Ravensleigh | Base</title>
     <style>
-        body { background: #050505; color: #00f2ff; font-family: 'Courier New', monospace; text-align: center; margin: 0; }
-        nav { padding: 20px; border-bottom: 1px solid #00f2ff; display: flex; justify-content: center; gap: 20px; }
-        a { color: #00f2ff; text-decoration: none; border: 1px solid #00f2ff; padding: 5px 15px; }
-        .hero { padding: 50px; }
-        #clearance-display { color: #fff; font-size: 0.8em; margin-top: 10px; }
+        body { background: #000; color: #00f2ff; font-family: 'Courier New', monospace; text-align: center; margin: 0; }
+        nav { padding: 20px; border-bottom: 1px solid #00f2ff; display: flex; justify-content: center; gap: 15px; background: #050505; }
+        a, button.nav-btn { color: #00f2ff; text-decoration: none; border: 1px solid #00f2ff; padding: 8px 15px; background: none; font-family: inherit; cursor: pointer; }
+        a:hover, button.nav-btn:hover { background: rgba(0, 242, 255, 0.1); }
+        .hero { padding: 80px 20px; }
+        #clearance-display { color: #fff; font-size: 0.9em; margin-top: 15px; letter-spacing: 2px; }
+        .disconnect { border-color: #ff0000 !important; color: #ff0000 !important; }
     </style>
 </head>
 <body>
+
     <nav>
         <a href="/">BASE</a>
         <a href="/communications/">COMMS</a>
         <a href="/documents/">ARCHIVES</a>
         <span id="admin-link"></span>
-        <button id="out" style="background:none; border:1px solid red; color:red; cursor:pointer;">DISCONNECT</button>
+        <button id="out" class="nav-btn disconnect">DISCONNECT</button>
     </nav>
+
     <div class="hero">
-        <h1>RAVENSLEIGH SECTOR</h1>
+        <h1 style="letter-spacing: 10px;">RAVENSLEIGH SECTOR</h1>
         <div id="user-info">Scanning Identity...</div>
         <div id="clearance-display"></div>
     </div>
@@ -29,30 +34,39 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-        const firebaseConfig = { /* Your Config Here */ };
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnwjt-RorMnufPR9He4-6alU7G_ox04lU",
+            authDomain: "ravensleigh-website.firebaseapp.com",
+            projectId: "ravensleigh-website",
+            storageBucket: "ravensleigh-website.firebasestorage.app",
+            messagingSenderId: "892085441390",
+            appId: "1:892085441390:web:619f81061a22cca61ca77f"
+        };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const labels = ["None", "Low Clearance", "Low Clearance", "Medium Clearance", "High Clearance", "Commander Clearance"];
+        const labels = ["Unverified", "Lowest Clearance", "Low Clearance", "Medium Clearance", "High Clearance", "Commander Clearance"];
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) { window.location.href = "/login/"; return; }
+            
             const snap = await getDoc(doc(db, "users", user.uid));
             if (snap.exists() && snap.data().approved) {
                 const data = snap.data();
                 document.getElementById('user-info').innerText = `Welcome, ${data.name} [${data.role}]`;
-                document.getElementById('clearance-display').innerText = `STATUS: ${labels[data.permLevel]}`;
+                document.getElementById('clearance-display').innerText = `STATUS: ${labels[data.permLevel] || 'Unknown'}`;
+                
                 if(data.permLevel === 5) {
                     document.getElementById('admin-link').innerHTML = '<a href="/control-panel/" style="border-color:yellow; color:yellow;">CONTROL PANEL</a>';
                 }
-            } else { window.location.href = "/login/"; }
+            } else {
+                window.location.href = "/login/";
+            }
         });
 
         document.getElementById('out').onclick = () => signOut(auth).then(() => window.location.reload());
-    </script>
-</body>
-</html>Out(auth).then(() => window.location.reload());
     </script>
 </body>
 </html>
