@@ -2,19 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Ravensleigh | Documents</title>
+    <title>Ravensleigh | Archives</title>
     <style>
         body { background: #000; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; }
         nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; }
         .container { padding: 40px; max-width: 900px; margin: auto; }
-        .doc-card { border: 1px solid #222; padding: 25px; margin-bottom: 20px; background: rgba(0, 242, 255, 0.02); line-height: 1.6; }
+        .doc-card { border: 1px solid #222; padding: 25px; margin-bottom: 20px; background: rgba(0, 242, 255, 0.02); }
         
         #editor-zone { display: none; background: #111; border: 2px solid #00f2ff; padding: 20px; margin-bottom: 30px; }
-        .toolbar { margin-bottom: 15px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .toolbar button { background: #000; color: #00f2ff; border: 1px solid #00f2ff; cursor: pointer; padding: 5px 10px; font-family: inherit; }
-        #edit-area { background: #fff; color: #000; min-height: 250px; padding: 15px; outline: none; margin-bottom: 15px; }
+        .toolbar { margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
         
-        .create-btn { background: #00f2ff; color: #000; padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; margin-bottom: 20px; font-family: inherit; }
+        /* Reactive Button Styling */
+        .tool-btn { 
+            background: #000; color: #00f2ff; border: 2px solid #00f2ff; 
+            cursor: pointer; padding: 5px 12px; font-family: inherit; font-weight: bold;
+            transition: all 0.2s;
+        }
+        .tool-btn.active { border-color: #ff0000; color: #ff0000; box-shadow: 0 0 5px #ff0000; }
+        
+        #edit-area { background: #fff; color: #000; min-height: 300px; padding: 15px; outline: none; margin-bottom: 15px; border: 2px solid #333; }
+        .save-btn { background: #00f2ff; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; margin-left: auto; }
     </style>
 </head>
 <body>
@@ -22,24 +29,31 @@
     <nav><a href="/" style="color:#00f2ff; text-decoration:none;">[ BACK TO BASE ]</a></nav>
 
     <div class="container">
-        <h1>SECURE DOCUMENTS</h1>
-        
-        <button id="new-doc-btn" class="create-btn" style="display:none;">+ INITIALIZE NEW DATA FILE</button>
+        <h1>SECURE ARCHIVES</h1>
+        <button id="new-doc-btn" class="tool-btn" style="display:none; margin-bottom:20px;">+ INITIALIZE NEW DATA FILE</button>
 
         <div id="editor-zone">
-            <div class="toolbar">
-                <button onclick="document.execCommand('bold', false, null)"><b>B</b></button>
-                <button onclick="document.execCommand('italic', false, null)"><i>I</i></button>
-                <button onclick="document.execCommand('underline', false, null)"><u>U</u></button>
-                <button onclick="document.execCommand('formatBlock', false, 'h1')">H1</button>
-                <button onclick="document.execCommand('formatBlock', false, 'h2')">H2</button>
-                <button onclick="document.execCommand('foreColor', false, '#ff0000')">Red</button>
-                <button id="save-btn" style="background:#00f2ff; color:#000; margin-left:auto;">UPLOAD TO CORE</button>
+            <div class="toolbar" id="main-toolbar">
+                <button class="tool-btn" data-cmd="bold">B</button>
+                <button class="tool-btn" data-cmd="italic">I</button>
+                <button class="tool-btn" data-cmd="underline">U</button>
+                <button class="tool-btn" data-cmd="formatBlock" data-val="h1">H1</button>
+                <button class="tool-btn" data-cmd="formatBlock" data-val="h2">H2</button>
+                
+                <span style="border-left: 1px solid #333; margin: 0 5px;"></span>
+                
+                <button class="tool-btn" onclick="exec('foreColor', '#0000ff')" style="color:blue; border-color:blue;">BLUE</button>
+                <button class="tool-btn" onclick="exec('foreColor', '#008000')" style="color:green; border-color:green;">GREEN</button>
+                <button class="tool-btn" onclick="exec('foreColor', '#000000')" style="color:black; border-color:black;">BLACK</button>
+                
+                <button id="save-btn" class="save-btn">UPLOAD TO CORE</button>
             </div>
-            <div id="edit-area" contenteditable="true"></div>
-            <div style="font-size: 0.8em;">
-                Min Clearance: <input type="number" id="min-lvl" value="1" min="1" max="5" style="width:40px; background:#000; color:#00f2ff; border:1px solid #00f2ff;">
-                | <input type="checkbox" id="lvl4-edit"> Allow High Clearance (Lvl 4) to edit
+            
+            <div id="edit-area" contenteditable="true" onkeyup="checkState()" onmouseup="checkState()"></div>
+            
+            <div style="font-size: 0.8em; display:flex; gap:20px;">
+                <span>Min Clearance: <input type="number" id="min-lvl" value="1" min="1" max="5" style="background:#000; color:#00f2ff; border:1px solid #00f2ff; width:40px;"></span>
+                <span><input type="checkbox" id="lvl4-edit"> Allow High Clearance (Lvl 4) Edit</span>
             </div>
         </div>
 
@@ -70,11 +84,37 @@
         onAuthStateChanged(auth, async (user) => {
             if(!user) return;
             const snap = await getDoc(doc(db, "users", user.uid));
-            if(snap.exists()){
-                myLvl = snap.data().permLevel;
-                if(myLvl === 5) document.getElementById('new-doc-btn').style.display = "block";
-                loadDocs();
-            }
+            myLvl = snap.data().permLevel;
+            if(myLvl === 5) document.getElementById('new-doc-btn').style.display = "block";
+            loadDocs();
+        });
+
+        // Reactive Toolbar Logic
+        window.checkState = () => {
+            const btns = document.querySelectorAll('.tool-btn[data-cmd]');
+            btns.forEach(btn => {
+                const cmd = btn.getAttribute('data-cmd');
+                const val = btn.getAttribute('data-val');
+                let isActive = false;
+                
+                if (val) {
+                    isActive = document.queryCommandValue(cmd).includes(val);
+                } else {
+                    isActive = document.queryCommandState(cmd);
+                }
+                btn.classList.toggle('active', isActive);
+            });
+        };
+
+        window.exec = (cmd, val = null) => {
+            document.execCommand(cmd, false, val);
+            checkState();
+        };
+
+        document.querySelectorAll('.tool-btn[data-cmd]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                exec(btn.getAttribute('data-cmd'), btn.getAttribute('data-val'));
+            });
         });
 
         function loadDocs() {
@@ -86,10 +126,8 @@
                     if(myLvl >= (data.minClearance || 1)) {
                         const div = document.createElement('div');
                         div.className = "doc-card";
-                        let editBtn = "";
-                        if(myLvl === 5 || (myLvl === 4 && data.allowLvl4Edit)) {
-                            editBtn = `<button onclick="window.openEdit('${d.id}')" style="float:right; cursor:pointer;">EDIT</button>`;
-                        }
+                        let editBtn = (myLvl === 5 || (myLvl === 4 && data.allowLvl4Edit)) ? 
+                            `<button class="tool-btn" onclick="window.openEdit('${d.id}')" style="float:right">EDIT</button>` : "";
                         div.innerHTML = `${editBtn}<div>${data.html}</div>`;
                         list.appendChild(div);
                     }
@@ -104,14 +142,14 @@
             document.getElementById('min-lvl').value = snap.data().minClearance || 1;
             document.getElementById('lvl4-edit').checked = snap.data().allowLvl4Edit || false;
             document.getElementById('editor-zone').style.display = "block";
+            checkState();
         };
 
         document.getElementById('new-doc-btn').onclick = () => { 
-            editingId = null; 
-            document.getElementById('edit-area').innerHTML = ""; 
+            editingId = null; document.getElementById('edit-area').innerHTML = ""; 
             document.getElementById('editor-zone').style.display = "block"; 
         };
-        
+
         document.getElementById('save-btn').onclick = async () => {
             const payload = {
                 html: document.getElementById('edit-area').innerHTML,
