@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ravensleigh | Verification</title>
+    <style>
+        body { background: #000; color: #00f2ff; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { border: 2px solid #00f2ff; padding: 40px; text-align: center; box-shadow: 0 0 15px #00f2ff; }
+        input { background: #111; border: 1px solid #00f2ff; color: #00f2ff; padding: 10px; margin: 10px; display: block; width: 200px; }
+        button { background: #00f2ff; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>IDENTITY SCAN</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Key">
+        <button id="login">LOGIN</button>
+        <button id="req" style="background:none; color:#00f2ff; border:1px solid #00f2ff; margin-left:10px;">REQUEST ACCESS</button>
+        <p id="msg"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnwjt-RorMnufPR9He4-6alU7G_ox04lU",
+            authDomain: "ravensleigh-website.firebaseapp.com",
+            projectId: "ravensleigh-website",
+            storageBucket: "ravensleigh-website.firebasestorage.app",
+            messagingSenderId: "892085441390",
+            appId: "1:892085441390:web:619f81061a22cca61ca77f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        document.getElementById('login').onclick = async () => {
+            try {
+                await signInWithEmailAndPassword(auth, email.value, password.value);
+                window.location.href = "/";
+            } catch(e) { alert("Access Denied."); }
+        };
+
+        document.getElementById('req').onclick = async () => {
+            try {
+                const res = await createUserWithEmailAndPassword(auth, email.value, password.value);
+                await setDoc(doc(db, "users", res.user.uid), { email: email.value, approved: false });
+                document.getElementById('msg').innerText = "Request Sent. Wait for Admiral.";
+            } catch(e) { alert(e.message); }
+        };
+    </script>
+</body>
+</html>
