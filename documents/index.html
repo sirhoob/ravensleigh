@@ -1,41 +1,49 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Ravensleigh | Archives</title>
+    <meta charset="UTF-8">
+    <title>Ravensleigh | Documents</title>
     <style>
-        body { background: #050505; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; }
+        body { background: #000; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; }
         nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; }
         .container { padding: 40px; max-width: 900px; margin: auto; }
-        .doc-card { border: 1px solid #222; padding: 20px; margin-bottom: 20px; background: rgba(255,255,255,0.02); }
-        .editor { display: none; background: #111; border: 1px solid #00f2ff; padding: 20px; margin-bottom: 30px; }
-        .toolbar { margin-bottom: 10px; display: flex; gap: 5px; flex-wrap: wrap; }
-        .toolbar button { background: #000; color: #00f2ff; border: 1px solid #00f2ff; cursor: pointer; padding: 5px; }
-        #edit-area { background: #fff; color: #000; min-height: 200px; padding: 10px; outline: none; }
+        .doc-card { border: 1px solid #222; padding: 25px; margin-bottom: 20px; background: rgba(0, 242, 255, 0.02); line-height: 1.6; }
+        
+        #editor-zone { display: none; background: #111; border: 2px solid #00f2ff; padding: 20px; margin-bottom: 30px; }
+        .toolbar { margin-bottom: 15px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .toolbar button { background: #000; color: #00f2ff; border: 1px solid #00f2ff; cursor: pointer; padding: 5px 10px; font-family: inherit; }
+        #edit-area { background: #fff; color: #000; min-height: 250px; padding: 15px; outline: none; margin-bottom: 15px; }
+        
+        .create-btn { background: #00f2ff; color: #000; padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; margin-bottom: 20px; font-family: inherit; }
     </style>
 </head>
 <body>
-    <nav><a href="/" style="color:#00f2ff;">BACK TO BASE</a></nav>
-    <div class="container">
-        <h1>SECURE ARCHIVES</h1>
-        <button id="new-doc-btn" style="display:none; margin-bottom:20px;">+ INITIALIZE NEW DATA FILE</button>
 
-        <div id="editor-zone" class="editor">
+    <nav><a href="/" style="color:#00f2ff; text-decoration:none;">[ BACK TO BASE ]</a></nav>
+
+    <div class="container">
+        <h1>SECURE DOCUMENTS</h1>
+        
+        <button id="new-doc-btn" class="create-btn" style="display:none;">+ INITIALIZE NEW DATA FILE</button>
+
+        <div id="editor-zone">
             <div class="toolbar">
-                <button onclick="exec('bold')"><b>B</b></button>
-                <button onclick="exec('italic')"><i>I</i></button>
-                <button onclick="exec('underline')"><u>U</u></button>
-                <button onclick="exec('formatBlock', 'h1')">H1</button>
-                <button onclick="exec('formatBlock', 'h2')">H2</button>
-                <button onclick="exec('formatBlock', 'h3')">H3</button>
-                <input type="color" onchange="exec('foreColor', this.value)">
-                <button id="save-btn">UPLOAD TO CORE</button>
+                <button onclick="document.execCommand('bold', false, null)"><b>B</b></button>
+                <button onclick="document.execCommand('italic', false, null)"><i>I</i></button>
+                <button onclick="document.execCommand('underline', false, null)"><u>U</u></button>
+                <button onclick="document.execCommand('formatBlock', false, 'h1')">H1</button>
+                <button onclick="document.execCommand('formatBlock', false, 'h2')">H2</button>
+                <button onclick="document.execCommand('foreColor', false, '#ff0000')">Red</button>
+                <button id="save-btn" style="background:#00f2ff; color:#000; margin-left:auto;">UPLOAD TO CORE</button>
             </div>
             <div id="edit-area" contenteditable="true"></div>
-            <p>Required Clearance: <input type="number" id="min-lvl" value="1" min="1" max="5"></p>
-            <p><input type="checkbox" id="lvl4-edit"> Allow High Clearance (Lvl 4) to edit</p>
+            <div style="font-size: 0.8em;">
+                Min Clearance: <input type="number" id="min-lvl" value="1" min="1" max="5" style="width:40px; background:#000; color:#00f2ff; border:1px solid #00f2ff;">
+                | <input type="checkbox" id="lvl4-edit"> Allow High Clearance (Lvl 4) to edit
+            </div>
         </div>
 
-        <div id="doc-list">Loading records...</div>
+        <div id="doc-list">Scanning data banks...</div>
     </div>
 
     <script type="module">
@@ -43,7 +51,15 @@
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-        const firebaseConfig = { /* Your Config Here */ };
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnwjt-RorMnufPR9He4-6alU7G_ox04lU",
+            authDomain: "ravensleigh-website.firebaseapp.com",
+            projectId: "ravensleigh-website",
+            storageBucket: "ravensleigh-website.firebasestorage.app",
+            messagingSenderId: "892085441390",
+            appId: "1:892085441390:web:619f81061a22cca61ca77f"
+        };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -54,9 +70,11 @@
         onAuthStateChanged(auth, async (user) => {
             if(!user) return;
             const snap = await getDoc(doc(db, "users", user.uid));
-            myLvl = snap.data().permLevel;
-            if(myLvl === 5) document.getElementById('new-doc-btn').style.display = "block";
-            loadDocs();
+            if(snap.exists()){
+                myLvl = snap.data().permLevel;
+                if(myLvl === 5) document.getElementById('new-doc-btn').style.display = "block";
+                loadDocs();
+            }
         });
 
         function loadDocs() {
@@ -70,16 +88,15 @@
                         div.className = "doc-card";
                         let editBtn = "";
                         if(myLvl === 5 || (myLvl === 4 && data.allowLvl4Edit)) {
-                            editBtn = `<button onclick="openEdit('${d.id}')" style="float:right">EDIT</button>`;
+                            editBtn = `<button onclick="window.openEdit('${d.id}')" style="float:right; cursor:pointer;">EDIT</button>`;
                         }
-                        div.innerHTML = `${editBtn}${data.html}`;
+                        div.innerHTML = `${editBtn}<div>${data.html}</div>`;
                         list.appendChild(div);
                     }
                 });
             });
         }
 
-        window.exec = (c, v) => document.execCommand(c, false, v);
         window.openEdit = async (id) => {
             const snap = await getDoc(doc(db, "documents", id));
             editingId = id;
@@ -89,7 +106,11 @@
             document.getElementById('editor-zone').style.display = "block";
         };
 
-        document.getElementById('new-doc-btn').onclick = () => { editingId = null; document.getElementById('edit-area').innerHTML = ""; document.getElementById('editor-zone').style.display = "block"; };
+        document.getElementById('new-doc-btn').onclick = () => { 
+            editingId = null; 
+            document.getElementById('edit-area').innerHTML = ""; 
+            document.getElementById('editor-zone').style.display = "block"; 
+        };
         
         document.getElementById('save-btn').onclick = async () => {
             const payload = {
