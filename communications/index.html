@@ -1,48 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Ravensleigh | Communications</title>
+    <title>Ravensleigh | Comms</title>
     <style>
         body { background: #050505; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; background: #000; }
-        a { color: #00f2ff; text-decoration: none; margin: 0 15px; padding: 5px 10px; border: 1px solid transparent; }
-        a:hover { border: 1px solid #00f2ff; }
-        
-        #chat-container { flex-grow: 1; display: flex; flex-direction: column; padding: 20px; max-width: 900px; margin: auto; width: 100%; }
-        #chat-box { flex-grow: 1; border: 1px solid #00f2ff; background: rgba(0, 242, 255, 0.02); overflow-y: auto; padding: 15px; margin-bottom: 15px; }
-        
-        .message { margin-bottom: 10px; line-height: 1.4; border-bottom: 1px solid #111; padding-bottom: 5px; }
-        .user-tag { color: #fff; font-weight: bold; margin-right: 8px; }
-        
-        .input-area { display: flex; gap: 10px; }
-        input { background: #111; border: 1px solid #00f2ff; color: #00f2ff; padding: 12px; flex-grow: 1; outline: none; }
-        button { background: #00f2ff; color: #000; border: none; padding: 10px 25px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #fff; }
+        nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; }
+        #chat-box { flex-grow: 1; border: 1px solid #00f2ff; margin: 20px; padding: 15px; overflow-y: auto; background: rgba(0,242,255,0.02); }
+        .message { margin-bottom: 12px; border-bottom: 1px solid #111; padding-bottom: 5px; position: relative; }
+        .role-tag { font-size: 0.7em; color: #aaa; text-transform: uppercase; margin-right: 5px; border: 1px solid #444; padding: 2px 4px; }
+        .user-name { font-weight: bold; color: #fff; }
+        .del-btn { background: none; border: 1px solid red; color: red; font-size: 0.6em; cursor: pointer; float: right; padding: 2px 5px; }
+        .input-area { padding: 20px; display: flex; gap: 10px; }
+        input { background: #111; border: 1px solid #00f2ff; color: #00f2ff; padding: 10px; flex-grow: 1; }
+        button#send { background: #00f2ff; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
-
     <nav>
-        <a href="/">HOME</a>
-        <a href="/documents/">ARCHIVES</a>
-        <a href="/communications/">COMMS</a>
+        <a href="/" style="color:#00f2ff; text-decoration:none; margin: 0 15px;">HOME</a>
+        <a href="/documents/" style="color:#00f2ff; text-decoration:none; margin: 0 15px;">ARCHIVES</a>
     </nav>
 
-    <div id="chat-container">
-        <h2 style="text-align: center; letter-spacing: 3px;">SUB-SPACE TRANSMISSIONS</h2>
-        <div id="chat-box">Loading encrypted signals...</div>
-        
-        <div class="input-area">
-            <input type="text" id="msg-input" placeholder="Enter transmission..." autocomplete="off">
-            <button id="send-btn">SEND</button>
-        </div>
+    <div id="chat-box">Establishing connection...</div>
+
+    <div class="input-area">
+        <input type="text" id="msg" placeholder="Enter signal...">
+        <button id="send">SEND</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAnwjt-RorMnufPR9He4-6alU7G_ox04lU",
@@ -57,65 +46,59 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // 1. SECURITY CHECK: Ensure user is logged in AND approved
+        let myData = { name: "Unknown", role: "Visitor", permLevel: 1 };
+
         onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = "/login/";
-            } else {
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                if (!userDoc.exists() || !userDoc.data().approved) {
-                    window.location.href = "/login/";
-                } else {
-                    startChat(); // Only start if cleared
-                }
+            if (!user) { window.location.href = "/login/"; }
+            else {
+                const snap = await getDoc(doc(db, "users", user.uid));
+                if (snap.exists() && snap.data().approved) {
+                    myData = snap.data();
+                    startChat();
+                } else { window.location.href = "/login/"; }
             }
         });
 
-        // 2. SEND MESSAGE FUNCTION
-        async function sendMessage() {
-            const input = document.getElementById('msg-input');
-            const text = input.value.trim();
-            
-            if (text !== "" && auth.currentUser) {
-                try {
-                    await addDoc(collection(db, "messages"), {
-                        text: text,
-                        sender: auth.currentUser.email.split('@')[0], // Uses name before the @
-                        timestamp: serverTimestamp()
-                    });
-                    input.value = "";
-                } catch (e) {
-                    console.error("Transmission failed: ", e);
-                }
-            }
+        async function sendSignal() {
+            const text = document.getElementById('msg').value;
+            if (text.trim() === "") return;
+            await addDoc(collection(db, "messages"), {
+                text: text,
+                name: myData.name,
+                role: myData.role,
+                time: serverTimestamp()
+            });
+            document.getElementById('msg').value = "";
         }
 
-        // 3. LISTEN FOR MESSAGES (Real-time)
         function startChat() {
-            const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
-            
-            onSnapshot(q, (snapshot) => {
-                const chatBox = document.getElementById('chat-box');
-                chatBox.innerHTML = ""; // Clear for refresh
-                
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
+            const q = query(collection(db, "messages"), orderBy("time", "asc"));
+            onSnapshot(q, (snap) => {
+                const box = document.getElementById('chat-box');
+                box.innerHTML = "";
+                snap.forEach((d) => {
+                    const m = d.data();
                     const msgDiv = document.createElement('div');
                     msgDiv.className = "message";
-                    msgDiv.innerHTML = `<span class="user-tag">[${data.sender || 'Unknown'}]</span> ${data.text}`;
-                    chatBox.appendChild(msgDiv);
+                    
+                    // Add delete button ONLY if I am Level 2
+                    let delHtml = (myData.permLevel >= 2) ? `<button class="del-btn" onclick="erase('${d.id}')">ERASE</button>` : "";
+                    
+                    msgDiv.innerHTML = `${delHtml}<span class="role-tag">${m.role}</span><span class="user-name">${m.name}</span>: ${m.text}`;
+                    box.appendChild(msgDiv);
                 });
-                
-                // Auto-scroll to bottom
-                chatBox.scrollTop = chatBox.scrollHeight;
+                box.scrollTop = box.scrollHeight;
             });
         }
 
-        // Event Listeners
-        document.getElementById('send-btn').onclick = sendMessage;
-        document.getElementById('msg-input').onkeypress = (e) => {
-            if (e.key === 'Enter') sendMessage();
+        window.erase = async (id) => {
+            if (confirm("Permanently erase this signal from the archives?")) {
+                await deleteDoc(doc(db, "messages", id));
+            }
         };
+
+        document.getElementById('send').onclick = sendSignal;
+        document.getElementById('msg').addEventListener("keypress", (e) => { if (e.key === "Enter") sendSignal(); });
     </script>
 </body>
 </html>
