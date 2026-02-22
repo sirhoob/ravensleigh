@@ -9,12 +9,15 @@
         nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; background: #000; }
         nav a { color: #00f2ff; text-decoration: none; margin: 0 15px; font-weight: bold; }
         
-        .admin-container { padding: 40px; max-width: 1100px; margin: auto; }
+        .admin-container { padding: 40px; max-width: 1200px; margin: auto; }
         h1 { letter-spacing: 5px; text-shadow: 0 0 10px #00f2ff; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 30px; background: rgba(0, 242, 255, 0.02); }
         th { background: #111; color: #fff; padding: 15px; text-align: left; border-bottom: 2px solid #00f2ff; }
-        td { padding: 15px; border-bottom: 1px solid #222; }
+        td { padding: 15px; border-bottom: 1px solid #222; vertical-align: top; }
+
+        .id-details { font-size: 0.75em; color: #666; margin-top: 8px; line-height: 1.4; }
+        .uid-text { color: #0088ff; } /* Blue for UID to distinguish it */
 
         input, select { 
             background: #111; 
@@ -23,6 +26,7 @@
             padding: 8px; 
             font-family: 'Courier New';
             outline: none;
+            width: 90%;
         }
         input:focus { border-color: #00f2ff; }
 
@@ -37,12 +41,12 @@
             width: 100%;
         }
         .save-btn { background: #00f2ff; color: #000; }
-        .approve-btn { background: #555; color: #fff; }
+        .approve-btn { background: #444; color: #fff; }
         .approve-btn.active { background: #008800; color: #fff; }
-        .delete-btn { background: #660000; color: #fff; border: 1px solid #ff0000; }
-        .delete-btn:hover { background: #ff0000; }
+        .delete-btn { background: #440000; color: #fff; border: 1px solid #990000; }
+        .delete-btn:hover { background: #ff0000; color: #000; }
 
-        .status-badge { font-size: 10px; padding: 2px 6px; display: inline-block; margin-top: 5px; }
+        .status-badge { font-size: 10px; padding: 2px 6px; display: inline-block; margin-top: 5px; font-weight: bold; }
         .verified { background: #00f2ff; color: #000; }
         .pending { background: #ffaa00; color: #000; }
     </style>
@@ -58,19 +62,18 @@
 
     <div class="admin-container">
         <h1>ADMIRAL CONTROL PANEL</h1>
-        <p>SECURE INTERFACE: Managing Sector Personnel</p>
+        <p>INTERNAL ACCESS ONLY: DATABASE OVERRIDE</p>
         
         <table>
             <thead>
                 <tr>
-                    <th>Identity (Name/Email)</th>
+                    <th>Identity & Metadata</th>
                     <th>Designation (Role)</th>
                     <th>Clearance Level</th>
                     <th>Command Actions</th>
                 </tr>
             </thead>
-            <tbody id="user-list">
-                </tbody>
+            <tbody id="user-list"></tbody>
         </table>
     </div>
 
@@ -92,7 +95,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- ACCESS SECURITY ---
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "/login/";
@@ -101,13 +103,12 @@
                 if (snap.exists() && snap.data().permLevel >= 2) {
                     loadUsers();
                 } else {
-                    alert("SECURITY BREACH: Insufficient Clearance.");
+                    alert("ACCESS DENIED: Insufficient Clearance.");
                     window.location.href = "/";
                 }
             }
         });
 
-        // --- RENDER TABLE ---
         function loadUsers() {
             onSnapshot(collection(db, "users"), (snapshot) => {
                 const list = document.getElementById('user-list');
@@ -120,11 +121,14 @@
 
                     row.innerHTML = `
                         <td>
-                            <input type="text" id="name-${id}" value="${u.name || ''}" placeholder="Identity Name"><br>
-                            <span style="font-size:0.7em; color:#555;">UID: ${id}</span>
+                            <input type="text" id="name-${id}" value="${u.name || ''}">
+                            <div class="id-details">
+                                <strong>EMAIL:</strong> ${u.email || 'N/A'}<br>
+                                <strong>UID:</strong> <span class="uid-text">${id}</span>
+                            </div>
                         </td>
                         <td>
-                            <input type="text" id="role-${id}" value="${u.role || ''}" placeholder="Assigned Role">
+                            <input type="text" id="role-${id}" value="${u.role || ''}">
                         </td>
                         <td>
                             <select id="perm-${id}">
@@ -133,10 +137,10 @@
                             </select>
                             <br>
                             <span class="status-badge ${u.approved ? 'verified' : 'pending'}">
-                                ${u.approved ? 'VERIFIED' : 'PENDING APPROVAL'}
+                                ${u.approved ? 'VERIFIED' : 'PENDING'}
                             </span>
                         </td>
-                        <td style="width: 150px;">
+                        <td>
                             <button class="btn save-btn" onclick="saveData('${id}')">Save Changes</button>
                             <button class="btn approve-btn ${u.approved ? 'active' : ''}" onclick="toggleStatus('${id}', ${u.approved})">
                                 ${u.approved ? 'Revoke' : 'Approve'}
@@ -149,7 +153,6 @@
             });
         }
 
-        // --- GLOBAL ACTIONS ---
         window.saveData = async (id) => {
             const newName = document.getElementById(`name-${id}`).value;
             const newRole = document.getElementById(`role-${id}`).value;
@@ -161,9 +164,9 @@
                     role: newRole,
                     permLevel: parseInt(newPerm)
                 });
-                alert("Records Updated.");
+                alert("Records Transmitted Successfully.");
             } catch (e) {
-                alert("Update Failed: " + e.message);
+                alert("Transmission Error: " + e.message);
             }
         };
 
@@ -172,7 +175,7 @@
         };
 
         window.terminateAccount = async (id) => {
-            if (confirm("WARNING: Permanent deletion of lifeform record. Proceed?")) {
+            if (confirm("FINAL WARNING: Permanent deletion of lifeform record. Confirm?")) {
                 await deleteDoc(doc(db, "users", id));
             }
         };
