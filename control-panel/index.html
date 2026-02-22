@@ -2,53 +2,34 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ravensleigh | Central Control</title>
     <style>
         body { background: #050505; color: #00f2ff; font-family: 'Courier New', monospace; margin: 0; }
-        nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; background: #000; }
+        nav { padding: 20px; border-bottom: 1px solid #00f2ff; text-align: center; }
         nav a { color: #00f2ff; text-decoration: none; margin: 0 15px; font-weight: bold; }
         
-        .admin-container { padding: 40px; max-width: 1200px; margin: auto; }
-        h1 { letter-spacing: 5px; text-shadow: 0 0 10px #00f2ff; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 30px; background: rgba(0, 242, 255, 0.02); }
+        .container { padding: 40px; max-width: 1200px; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: rgba(0, 242, 255, 0.02); }
         th { background: #111; color: #fff; padding: 15px; text-align: left; border-bottom: 2px solid #00f2ff; }
         td { padding: 15px; border-bottom: 1px solid #222; vertical-align: top; }
 
-        .id-details { font-size: 0.75em; color: #666; margin-top: 8px; line-height: 1.4; }
-        .uid-text { color: #0088ff; } /* Blue for UID to distinguish it */
-
+        .meta-data { font-size: 0.7em; color: #555; margin-top: 5px; }
         input, select { 
-            background: #111; 
-            border: 1px solid #333; 
-            color: #00f2ff; 
-            padding: 8px; 
-            font-family: 'Courier New';
-            outline: none;
-            width: 90%;
+            background: #111; border: 1px solid #333; color: #00f2ff; 
+            padding: 8px; font-family: 'Courier New'; width: 95%; outline: none;
         }
         input:focus { border-color: #00f2ff; }
 
-        .btn { 
-            padding: 8px 15px; 
-            cursor: pointer; 
-            border: none; 
-            font-weight: bold; 
-            font-family: 'Courier New'; 
-            text-transform: uppercase;
-            margin-bottom: 5px;
-            width: 100%;
-        }
+        .btn { padding: 8px; cursor: pointer; border: none; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; width: 100%; display: block; }
         .save-btn { background: #00f2ff; color: #000; }
-        .approve-btn { background: #444; color: #fff; }
-        .approve-btn.active { background: #008800; color: #fff; }
-        .delete-btn { background: #440000; color: #fff; border: 1px solid #990000; }
-        .delete-btn:hover { background: #ff0000; color: #000; }
+        .app-btn { background: #444; color: #fff; }
+        .app-btn.on { background: #008800; }
+        .term-btn { background: #440000; color: #fff; border: 1px solid #990000; }
+        .term-btn:hover { background: #ff0000; color: #000; }
 
-        .status-badge { font-size: 10px; padding: 2px 6px; display: inline-block; margin-top: 5px; font-weight: bold; }
-        .verified { background: #00f2ff; color: #000; }
-        .pending { background: #ffaa00; color: #000; }
+        .status-badge { font-size: 10px; padding: 2px 5px; display: inline-block; font-weight: bold; }
+        .v-ok { background: #00f2ff; color: #000; }
+        .v-wait { background: #ffaa00; color: #000; }
     </style>
 </head>
 <body>
@@ -60,17 +41,17 @@
         <a href="/control-panel/">CONTROL PANEL</a>
     </nav>
 
-    <div class="admin-container">
-        <h1>ADMIRAL CONTROL PANEL</h1>
-        <p>INTERNAL ACCESS ONLY: DATABASE OVERRIDE</p>
+    <div class="container">
+        <h1>COMMANDER INTERFACE</h1>
+        <p>MANAGING SECTOR PERSONNEL & CLEARANCE PROTOCOLS</p>
         
         <table>
             <thead>
                 <tr>
-                    <th>Identity & Metadata</th>
+                    <th>Identity (Name)</th>
                     <th>Designation (Role)</th>
                     <th>Clearance Level</th>
-                    <th>Command Actions</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="user-list"></tbody>
@@ -96,35 +77,35 @@
         const db = getFirestore(app);
 
         onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = "/login/";
-            } else {
+            if (!user) { window.location.href = "/login/"; }
+            else {
                 const snap = await getDoc(doc(db, "users", user.uid));
-                if (snap.exists() && snap.data().permLevel >= 2) {
-                    loadUsers();
+                // Requirement: Strictly Clearance 5 for Control Panel
+                if (snap.exists() && snap.data().permLevel === 5) {
+                    loadUserDatabase();
                 } else {
-                    alert("ACCESS DENIED: Insufficient Clearance.");
+                    alert("UNAUTHORIZED ACCESS: Level 5 Clearance Required.");
                     window.location.href = "/";
                 }
             }
         });
 
-        function loadUsers() {
+        function loadUserDatabase() {
             onSnapshot(collection(db, "users"), (snapshot) => {
                 const list = document.getElementById('user-list');
                 list.innerHTML = "";
                 
-                snapshot.forEach((userDoc) => {
-                    const u = userDoc.data();
-                    const id = userDoc.id;
+                snapshot.forEach((uDoc) => {
+                    const u = uDoc.data();
+                    const id = uDoc.id;
                     const row = document.createElement('tr');
 
                     row.innerHTML = `
                         <td>
                             <input type="text" id="name-${id}" value="${u.name || ''}">
-                            <div class="id-details">
-                                <strong>EMAIL:</strong> ${u.email || 'N/A'}<br>
-                                <strong>UID:</strong> <span class="uid-text">${id}</span>
+                            <div class="meta-data">
+                                MAIL: ${u.email}<br>
+                                UID: ${id}
                             </div>
                         </td>
                         <td>
@@ -132,20 +113,22 @@
                         </td>
                         <td>
                             <select id="perm-${id}">
-                                <option value="1" ${u.permLevel == 1 ? 'selected' : ''}>Low Clearance (Lvl 1)</option>
-                                <option value="2" ${u.permLevel == 2 ? 'selected' : ''}>Highest Clearance (Lvl 2)</option>
+                                <option value="1" ${u.permLevel == 1 ? 'selected' : ''}>Lowest Clearance (Lvl 1)</option>
+                                <option value="2" ${u.permLevel == 2 ? 'selected' : ''}>Low Clearance (Lvl 2)</option>
+                                <option value="3" ${u.permLevel == 3 ? 'selected' : ''}>Medium Clearance (Lvl 3)</option>
+                                <option value="4" ${u.permLevel == 4 ? 'selected' : ''}>High Clearance (Lvl 4)</option>
+                                <option value="5" ${u.permLevel == 5 ? 'selected' : ''}>Commander Clearance (Lvl 5)</option>
                             </select>
-                            <br>
-                            <span class="status-badge ${u.approved ? 'verified' : 'pending'}">
+                            <div class="status-badge ${u.approved ? 'v-ok' : 'v-wait'}">
                                 ${u.approved ? 'VERIFIED' : 'PENDING'}
-                            </span>
+                            </div>
                         </td>
                         <td>
-                            <button class="btn save-btn" onclick="saveData('${id}')">Save Changes</button>
-                            <button class="btn approve-btn ${u.approved ? 'active' : ''}" onclick="toggleStatus('${id}', ${u.approved})">
+                            <button class="btn save-btn" onclick="applyChanges('${id}')">Save Data</button>
+                            <button class="btn app-btn ${u.approved ? 'on' : ''}" onclick="toggleApprove('${id}', ${u.approved})">
                                 ${u.approved ? 'Revoke' : 'Approve'}
                             </button>
-                            <button class="btn delete-btn" onclick="terminateAccount('${id}')">Terminate</button>
+                            <button class="btn term-btn" onclick="terminate('${id}')">Terminate</button>
                         </td>
                     `;
                     list.appendChild(row);
@@ -153,29 +136,21 @@
             });
         }
 
-        window.saveData = async (id) => {
-            const newName = document.getElementById(`name-${id}`).value;
-            const newRole = document.getElementById(`role-${id}`).value;
-            const newPerm = document.getElementById(`perm-${id}`).value;
-
-            try {
-                await updateDoc(doc(db, "users", id), {
-                    name: newName,
-                    role: newRole,
-                    permLevel: parseInt(newPerm)
-                });
-                alert("Records Transmitted Successfully.");
-            } catch (e) {
-                alert("Transmission Error: " + e.message);
-            }
+        window.applyChanges = async (id) => {
+            await updateDoc(doc(db, "users", id), {
+                name: document.getElementById(`name-${id}`).value,
+                role: document.getElementById(`role-${id}`).value,
+                permLevel: parseInt(document.getElementById(`perm-${id}`).value)
+            });
+            alert("Database Updated.");
         };
 
-        window.toggleStatus = async (id, status) => {
+        window.toggleApprove = async (id, status) => {
             await updateDoc(doc(db, "users", id), { approved: !status });
         };
 
-        window.terminateAccount = async (id) => {
-            if (confirm("FINAL WARNING: Permanent deletion of lifeform record. Confirm?")) {
+        window.terminate = async (id) => {
+            if (confirm("Permanently erase this lifeform record?")) {
                 await deleteDoc(doc(db, "users", id));
             }
         };
